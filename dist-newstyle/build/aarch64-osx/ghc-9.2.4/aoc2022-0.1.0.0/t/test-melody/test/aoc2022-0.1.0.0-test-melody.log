@@ -1,0 +1,13 @@
+Test suite test-melody: RUNNING...
+Day1:
+  given single elf: [Failed]
+ERROR: Prelude.read: no parse
+  given single elf: [Failed]
+ERROR: Prelude.read: no parse
+
+         Test Cases  Total      
+ Passed  0           0          
+ Failed  2           2          
+ Total   2           2          
+Test suite test-melody: FAIL
+Test suite logged to: /Users/dbarrett/projects/dandandy/aoc-2022/dist-newstyle/build/aarch64-osx/ghc-9.2.4/aoc2022-0.1.0.0/t/test-melody/test/aoc2022-0.1.0.0-test-melody.log
