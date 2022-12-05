@@ -62,17 +62,20 @@ tops :: Data.Map Int [Char] -> [Char]
 tops m = map (last . snd) $ Data.toList m
 
 moving :: [Move] -> Data.Map Int [Char] -> Data.Map Int [Char]
-moving ls m = foldl (flip move) m ( ls)
+moving ls m = foldl (flip move) m ls
 -- moving (l:l2:l3:l4:ls) m = move (head ls) $  move l4 $  move l3 $ move l2 $ move l m
 
 move :: Move -> Data.Map Int [Char] -> Data.Map Int [Char]
-move (Move amount from to) m | amount == 0 = m
-                             | otherwise = move (Move (amount - 1) from to) (push to (pop from m))
+move (Move amount from to) m = push to (pop amount from m)
 
-pop :: Int -> Data.Map Int [Char] -> (Data.Map Int [Char], Char)
-pop i m = (Data.insert i (init list) m, last list)
+pop :: Int -> Int -> Data.Map Int [Char] -> (Data.Map Int [Char], [Char])
+pop amount index m = (Data.insert index (getExceptLastN amount list) m, getLastN amount list)
   where 
-    list = m Data.! i 
+    list = m Data.! index 
 
-push :: Int -> (Data.Map Int [Char], Char) -> Data.Map Int [Char]
-push i (m, c) = Data.insertWith (flip (++)) i [c] m
+push :: Int -> (Data.Map Int [Char], [Char]) -> Data.Map Int [Char]
+push i (m, c) = Data.insertWith (flip (++)) i c m
+
+getLastN n = reverse . take n . reverse
+
+getExceptLastN n list = take (length list - n) list 
