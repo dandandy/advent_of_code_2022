@@ -48,7 +48,8 @@ test-suite test-melody
 library Days
     exposed-modules:    Day1, 
                         Day2, 
-                        Helper
+                        Helper,
+                        Day3
     build-depends:    base>=4.14.3.0, parsec, containers>=0.6.5.1, matrix, stack, mtl, transformers
     hs-source-dirs:   src
     default-language: Haskell2010
