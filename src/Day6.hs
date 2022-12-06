@@ -10,4 +10,4 @@ parser :: Parsec String u String
 parser = many1 letter
 
 slice :: Int -> Int -> [a] -> [a]
-slice a b ls = map snd $ filter ((\v -> v>=a && v<b) . fst) $ zip [0..] ls 
+slice a b = take (b-a) . drop a
