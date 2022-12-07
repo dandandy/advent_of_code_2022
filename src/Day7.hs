@@ -1,6 +1,8 @@
 module Day7 where
 import Text.Parsec
 
+data FileTree = FileTree String [(Int, String)] [FileTree] deriving (Show)
+
 data Cmd = Cd String | Ls [LsOutput] deriving (Show)
 
 data LsOutput = Dir String | File Int String deriving (Show)
@@ -28,3 +30,22 @@ parseFileLine = pure File <*> (parseInt <* space) <*> parseFileName
 
         parseInt :: Parsec String String Int
         parseInt = read <$> many1 digit
+
+buildTree :: [Cmd] -> FileTree
+buildTree ((Cd "/"):cmd) = buildTree' (FileTree "/" [] []) cmd
+buildTree _ = error "needs to start from /"
+
+buildTree' :: FileTree -> [Cmd] -> FileTree
+buildTree' f [] = f
+buildTree' f ((Cd ".."):cmd) = f   
+buildTree' f ((Cd "/"):cmd) = error "cannot return to root"   
+buildTree' (FileTree name files dirs) ((Cd dir):cmd) = FileTree name files ((buildTree' (head $ filter ((==dir) . (\(FileTree name _ _) -> name)) dirs ) cmd):(filter ((/=dir) . (\(FileTree name _ _) -> name)) dirs))
+buildTree' (FileTree name files dirs) ((Ls lsOutput):cmd) = buildTree' (FileTree name (files ++ concatMap toFile lsOutput) (dirs ++ concatMap toDir lsOutput)) cmd
+
+toFile :: LsOutput -> [(Int, String)]
+toFile (File a b) = [(a, b)]
+toFile (Dir _) = []
+
+toDir :: LsOutput -> [FileTree]
+toDir (File _ _) = []
+toDir (Dir a) = [FileTree a [] []]
