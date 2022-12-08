@@ -10,10 +10,10 @@ import Text.Parsec
       sepEndBy,
       (<|>),
       try,
-      Parsec )
+      Parsec, many )
 import Control.Monad.State (State, get, put, execState, evalState)
 import Control.Monad (when)
-import Data.Map (Map, mapWithKey, empty, insert, toList, map)
+import Data.Map (Map, mapWithKey, empty, insert, toList, map, lookup)
 import Data.Maybe (mapMaybe, catMaybes)
 import qualified Control.Applicative
 import Data.List (subsequences, maximumBy, map, sortBy, intercalate)
@@ -25,6 +25,12 @@ data Stack a = Stack [a] deriving (Show)
 data Cmd = Cd String | Ls [LsOutput] deriving (Show)
 
 data LsOutput = Dir String | File Int String deriving (Show)
+
+type FileSystem = Data.Map.Map Dir ([File], [Dir])
+
+type Dir = String
+
+type File = (Int, String)
 
 parseCmd :: Parsec String String [Cmd]
 parseCmd = many1 (try parseCd <|> try parseLs)
@@ -50,12 +56,12 @@ parseFileLine = pure File <*> (parseInt <* space) <*> parseFileName
         parseInt :: Parsec String String Int
         parseInt = read <$> many1 digit
 
-runState' :: [Cmd] -> (Stack String, Map String [(Int, String)])
+runState' :: [Cmd] -> (Stack String, FileSystem)
 runState' c = execState (mapM toInfo c) (Stack [], empty)
     where
-        toInfo :: Cmd -> State (Stack String, Map String [(Int, String)]) ()
+        toInfo :: Cmd -> State (Stack String, FileSystem) ()
         toInfo cmd = do (stack, files) <- get
-                        put ((applyCmdToStack cmd stack), applyCmdToMap cmd stack files)
+                        put (applyCmdToStack cmd stack, applyCmdToMap cmd stack files)
                         return ()
 
 applyCmdToStack :: Cmd -> Stack String -> Stack String
@@ -63,50 +69,35 @@ applyCmdToStack (Cd "..") (Stack s) = Stack $ tail s
 applyCmdToStack (Cd a) (Stack s) = Stack $ a:s
 applyCmdToStack _ s = s
 
-applyCmdToMap :: Cmd -> Stack String -> Map String [(Int, String)] -> Map String [(Int, String)]
+applyCmdToMap :: Cmd -> Stack String -> FileSystem -> FileSystem
 applyCmdToMap (Cd "..") _ m = m 
-applyCmdToMap (Cd a) (Stack stack) m = insert (stackPath (Stack (a:stack)) ) [] m
-applyCmdToMap (Ls output) stack m = mapWithKey (\k v -> if k `elem` allSubStackPaths stack then lsOutput++v else v) m
+applyCmdToMap (Cd a) (Stack stack) m = m
+applyCmdToMap (Ls output) (Stack stack) m = insert (stackPath (Stack stack)) (files, dirPaths) m
     where 
-        lsOutput = mapMaybe toFile output
+        files = mapMaybe toFile output
+        dirNames = mapMaybe toDir output
+        dirPaths = Data.List.map (stackPath . Stack . (:stack)) dirNames
 
 allSubStackPaths :: Stack String -> [String]
-allSubStackPaths (Stack str) = [stackPath (Stack (drop s str)) | s <- [0.. length str - 1] ]
+allSubStackPaths (Stack str) = [stackPath (Stack (drop s str)) | s <- [0.. length str - 1]]
 
 stackPath :: Stack String -> String
 stackPath (Stack str) = intercalate "/" str
 
-run :: [Cmd] -> Int
-run cmds = sum . Data.List.map snd $ largestDirsWithAtMost 100000 (sum' map)
+-- run :: [Cmd] -> Int 
+run cmds = sum . Data.List.map snd $ filter ((<=100000) . snd) $ toList $ sum' map
     where
         (_,map) = runState' cmds
 
-sum' :: Data.Map.Map String [(Int, String)] -> Data.Map.Map String Int
-sum' = Data.Map.map (sum . Data.List.map fst)
-
-largestDirsWithAtMost :: Int -> Map String Int -> [(String, Int)]
-largestDirsWithAtMost n = takeWhile' n . sortBy (\a b-> snd a `compare` snd b)  . toList
+sum' :: FileSystem -> Data.Map.Map String Int
+sum' m = mapWithKey (\k (_,dirs) -> lookup' (k:dirs) dirSizes) m
     where
-        filterLessEqN :: [[(String, Int)]] -> [[(String, Int)]]
-        filterLessEqN = filter ((<=n) . sum')
+        dirSizes = Data.Map.map (sum . Data.List.map fst . fst) m
 
-        compare' :: [(String, Int)] -> [(String, Int)] -> Ordering
-        compare' as bs = compare (sum' as) (sum' bs)
+        lookup' :: [Dir] -> Data.Map.Map Dir Int -> Int
+        lookup' dirs m = sum $ mapMaybe (`Data.Map.lookup` m) dirs
 
-        sum' :: [(String, Int)] -> Int
-        sum' = sum . Data.List.map snd
-
-takeWhile' :: Int -> [(String,Int)] -> [(String, Int)]
-takeWhile' n strs = catMaybes $  evalState (mapM (takeWhileState n) strs) 0
-
-takeWhileState :: Int -> (String, Int) -> State Int (Maybe (String, Int))
-takeWhileState n (str, int) =  do   x <- get
-                                    put $ x + int
-                                    if x + int <= n then 
-                                        return $ Just (str, int) 
-                                        else return Nothing
-
-toFile :: LsOutput -> Maybe (Int, String)
+toFile :: LsOutput -> Maybe File
 toFile (File a b) = Just (a, b)
 toFile (Dir _) = Nothing
 
