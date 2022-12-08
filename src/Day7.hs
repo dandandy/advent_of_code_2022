@@ -16,9 +16,8 @@ import Control.Monad (when)
 import Data.Map (Map, mapWithKey, empty, insert, toList, map)
 import Data.Maybe (mapMaybe, catMaybes)
 import qualified Control.Applicative
-import Data.List (subsequences, maximumBy, map, sortBy, intercalate)
+import Data.List (subsequences, maximumBy, map, sortBy)
 import Debug.Trace ( trace )
-import Control.Monad (join)
 
 data Stack a = Stack [a] deriving (Show)
 
@@ -51,30 +50,12 @@ parseFileLine = pure File <*> (parseInt <* space) <*> parseFileName
         parseInt = read <$> many1 digit
 
 runState' :: [Cmd] -> (Stack String, Map String [(Int, String)])
-runState' c = execState (mapM toInfo c) (Stack [], empty)
+runState' c =execState (mapM toInfo c) (Stack [], empty)
     where
         toInfo :: Cmd -> State (Stack String, Map String [(Int, String)]) ()
         toInfo cmd = do (stack, files) <- get
                         put ((applyCmdToStack cmd stack), applyCmdToMap cmd stack files)
                         return ()
-
-applyCmdToStack :: Cmd -> Stack String -> Stack String
-applyCmdToStack (Cd "..") (Stack s) = Stack $ tail s
-applyCmdToStack (Cd a) (Stack s) = Stack $ a:s
-applyCmdToStack _ s = s
-
-applyCmdToMap :: Cmd -> Stack String -> Map String [(Int, String)] -> Map String [(Int, String)]
-applyCmdToMap (Cd "..") _ m = m 
-applyCmdToMap (Cd a) (Stack stack) m = insert (stackPath (Stack (a:stack)) ) [] m
-applyCmdToMap (Ls output) stack m = mapWithKey (\k v -> if k `elem` allSubStackPaths stack then lsOutput++v else v) m
-    where 
-        lsOutput = mapMaybe toFile output
-
-allSubStackPaths :: Stack String -> [String]
-allSubStackPaths (Stack str) = [stackPath (Stack (drop s str)) | s <- [0.. length str - 1] ]
-
-stackPath :: Stack String -> String
-stackPath (Stack str) = intercalate "/" str
 
 run :: [Cmd] -> Int
 run cmds = sum . Data.List.map snd $ largestDirsWithAtMost 100000 (sum' map)
@@ -105,6 +86,19 @@ takeWhileState n (str, int) =  do   x <- get
                                     if x + int <= n then 
                                         return $ Just (str, int) 
                                         else return Nothing
+
+
+applyCmdToStack :: Cmd -> Stack String -> Stack String
+applyCmdToStack (Cd "..") (Stack s) = Stack $ tail s
+applyCmdToStack (Cd a) (Stack s) = Stack $ a:s
+applyCmdToStack _ s = s
+
+applyCmdToMap :: Cmd -> Stack String -> Map String [(Int, String)] -> Map String [(Int, String)]
+applyCmdToMap (Cd "..") _ m = m 
+applyCmdToMap (Cd a) _ m = insert a [] m
+applyCmdToMap (Ls output) (Stack stack) m = mapWithKey (\k v -> if k `elem` stack then lsOutput++v else v) m
+    where 
+        lsOutput = mapMaybe toFile output
 
 toFile :: LsOutput -> Maybe (Int, String)
 toFile (File a b) = Just (a, b)
