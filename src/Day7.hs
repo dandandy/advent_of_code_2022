@@ -58,24 +58,12 @@ runState' c =execState (mapM toInfo c) (Stack [], empty)
                         return ()
 
 run :: [Cmd] -> Int
-run cmds = sum . Data.List.map snd $ largestDirsWithAtMost 100000 (sum' map)
+run cmds = sum . Data.List.map snd $ filter ((<=100000) . snd) $ toList $ sum' map
     where
         (_,map) = runState' cmds
 
 sum' :: Data.Map.Map String [(Int, String)] -> Data.Map.Map String Int
 sum' = Data.Map.map (sum . Data.List.map fst)
-
-largestDirsWithAtMost :: Int -> Map String Int -> [(String, Int)]
-largestDirsWithAtMost n = takeWhile' n . sortBy (\a b-> snd a `compare` snd b)  . toList
-    where
-        filterLessEqN :: [[(String, Int)]] -> [[(String, Int)]]
-        filterLessEqN = filter ((<=n) . sum')
-
-        compare' :: [(String, Int)] -> [(String, Int)] -> Ordering
-        compare' as bs = compare (sum' as) (sum' bs)
-
-        sum' :: [(String, Int)] -> Int
-        sum' = sum . Data.List.map snd
 
 takeWhile' :: Int -> [(String,Int)] -> [(String, Int)]
 takeWhile' n strs = catMaybes $  evalState (mapM (takeWhileState n) strs) 0
