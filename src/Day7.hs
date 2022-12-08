@@ -57,8 +57,15 @@ runState' c =execState (mapM toInfo c) (Stack [], empty)
                         put ((applyCmdToStack cmd stack), applyCmdToMap cmd stack files)
                         return ()
 
+delete :: [Int] -> Int
+delete dirs = (minimum . filter (>=requiredSizeToFree)) dirs
+    where
+        max = maximum  dirs
+        unusedSpace = 70000000 - max
+        requiredSizeToFree = 30000000 - unusedSpace
+
 run :: [Cmd] -> Int
-run cmds = sum . Data.List.map snd $ filter ((<=100000) . snd) $ toList $ sum' map
+run cmds = delete $ Data.List.map snd $ toList $ sum' map
     where
         (_,map) = runState' cmds
 
